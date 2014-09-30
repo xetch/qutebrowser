@@ -260,6 +260,7 @@ class WebView(QWebView):
         # Copied from:
         # https://code.google.com/p/webscraping/source/browse/webkit.py#325
         self.setPage(None)
+        self.registry.clear()
 
     def openurl(self, url):
         """Open a URL in the browser.
