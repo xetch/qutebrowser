@@ -114,4 +114,5 @@ def main():
     QtWidgets.qApp = app
     ret = app.exec_()
     QtWidgets.qApp = None
+    del app
     return ret
