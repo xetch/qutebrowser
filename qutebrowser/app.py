@@ -19,6 +19,7 @@
 
 """Initialization of qutebrowser and application-wide things."""
 
+import gc
 import os
 import sys
 import subprocess
@@ -660,6 +661,10 @@ class Application(QApplication):
         # pylint: disable=too-many-branches, too-many-statements
         # FIXME refactor this
         log.destroy.debug("Stage 2 of shutting down...")
+        if self._args.debug_exit:
+            print("Now logging shutdown.", file=sys.stderr)
+            debug.trace_lines(True)
+            gc.set_debug(gc.DEBUG_LEAK)
         # Remove eventfilter
         try:
             log.destroy.debug("Removing eventfilter...")
@@ -733,7 +738,4 @@ class Application(QApplication):
     def exit(self, status):
         """Extend QApplication::exit to log the event."""
         log.destroy.debug("Now calling QApplication::exit.")
-        if self._args.debug_exit:
-            print("Now logging late shutdown.", file=sys.stderr)
-            debug.trace_lines(True)
         super().exit(status)
