@@ -84,6 +84,12 @@ meta_registry = ObjectRegistry()
 meta_registry['global'] = global_registry
 
 
+def clear():
+    """Clear all object registries on shutdown."""
+    global_registry.clear()
+    meta_registry.clear()
+
+
 def _get_registry(scope):
     """Get the correct registry for a given scope."""
     if scope == 'global':

@@ -727,6 +727,8 @@ class Application(QApplication):
         # If we don't kill our custom handler here we might get segfaults
         log.destroy.debug("Deactiving message handler...")
         qInstallMessageHandler(None)
+        log.destroy.debug("Cleaning up object registry...")
+        objreg.clear()
         # Now we can hopefully quit without segfaults
         log.destroy.debug("Deferring QApplication::exit...")
         # We use a singleshot timer to exit here to minimize the likelyhood of
