@@ -160,9 +160,12 @@ class MainWindow(QWidget):
             e: The QResizeEvent
         """
         super().resizeEvent(e)
-        self.resize_completion()
-        self._downloadview.updateGeometry()
-        self._tabbed_browser.tabBar().refresh()
+        try:
+            self.resize_completion()
+            self._downloadview.updateGeometry()
+            self._tabbed_browser.tabBar().refresh()
+        except KeyError:
+            pass
 
     def closeEvent(self, e):
         """Override closeEvent to display a confirmation if needed."""
