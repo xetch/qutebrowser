@@ -105,4 +105,9 @@ class DownloadModel(QAbstractListModel):
         if parent.isValid():
             # We don't have children
             return 0
-        return len(objreg.get('download-manager').downloads)
+        try:
+            download_manager = objreg.get('download-manager')
+        except KeyError:
+            return 0
+        else:
+            return len(download_manager.downloads)
