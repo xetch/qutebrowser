@@ -48,8 +48,8 @@ from qutebrowser.misc import (crashdialog, readline, ipc, earlyinit,
                               savemanager, sessions)
 from qutebrowser.misc import utilcmds  # pylint: disable=unused-import
 from qutebrowser.keyinput import modeman
-from qutebrowser.utils import (log, version, message, utils, qtutils, urlutils,
-                               debug, objreg, usertypes, standarddir)
+from qutebrowser.utils import (log, message, utils, qtutils, urlutils, debug,
+                               objreg, usertypes, standarddir)
 # We import utilcmds to run the cmdutils.register decorators.
 
 
@@ -101,19 +101,7 @@ class Application(QApplication):
 
         objreg.register('app', self)
 
-        if self._args.version:
-            print(version.version())
-            print()
-            print()
-            print(qutebrowser.__copyright__)
-            print()
-            print(version.GPL_BOILERPLATE.strip())
-            sys.exit(0)
-
         try:
-            sent = ipc.send_to_running_instance(self._args.command)
-            if sent:
-                sys.exit(0)
             log.init.debug("Starting IPC server...")
             ipc.init()
         except ipc.IPCError as e:
@@ -122,7 +110,6 @@ class Application(QApplication):
             msgbox = QMessageBox(QMessageBox.Critical, "Error while "
                                  "connecting to running instance!", text)
             msgbox.exec_()
-            # We didn't really initialize much so far, so we just quit hard.
             sys.exit(1)
 
         log.init.debug("Starting init...")

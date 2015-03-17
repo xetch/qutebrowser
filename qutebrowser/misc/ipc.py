@@ -179,8 +179,7 @@ class IPCServer(QObject):
 
 def init():
     """Initialize the global IPC server."""
-    app = objreg.get('app')
-    server = IPCServer(app)
+    server = IPCServer()
     objreg.register('ipc-server', server)
 
 

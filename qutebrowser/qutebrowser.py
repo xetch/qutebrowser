@@ -112,8 +112,42 @@ def main():
     parser = get_argparser()
     args = parser.parse_args()
     earlyinit.earlyinit(args)
-    # We do this imports late as earlyinit needs to be run first (because of
-    # the harfbuzz fix and version checking).
+
+    # We do some imports late here for various reasons:
+    # - earlyinit needs to be run first (because of # the harfbuzz fix and
+    #   version checking).
+    # - Importing QtWebKit stuff takes rather long, so we avoid it if we can.
+
+    from qutebrowser.misc import ipc
+    from qutebrowser.utils import log
+
+    if args.version:
+        from qutebrowser.utils import version
+        print(version.version())
+        print()
+        print()
+        print(qutebrowser.__copyright__)
+        print()
+        print(version.GPL_BOILERPLATE.strip())
+        return
+
+    try:
+        sent = ipc.send_to_running_instance(args.command)
+        if sent:
+            return
+        log.init.debug("Starting IPC server...")
+        ipc.init()
+    except ipc.IPCError as e:
+        from PyQt5.QtWidgets import QApplication, QMessageBox
+        app = QApplication([])
+        text = ('{}\n\nMaybe another instance is running but '
+                'frozen?'.format(e))
+        msgbox = QMessageBox(QMessageBox.Critical, "Error while connecting to "
+                             "running instance!", text)
+        msgbox.exec_()
+        del app
+        sys.exit(1)
+
     from qutebrowser import app
     import PyQt5.QtWidgets as QtWidgets
     app = app.Application(args)
