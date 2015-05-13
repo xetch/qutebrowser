@@ -155,6 +155,24 @@ class TestConfigParser:
             self.cfg.get('general', 'bar')  # pylint: disable=bad-config-call
 
 
+def keyconfig_deprecated_test_cases():
+    """Generator yielding test cases (command, rgx) for TestKeyConfigParser."""
+    for sect in configdata.KEY_DATA.values():
+        for command in sect:
+            for rgx, _repl in configdata.CHANGED_KEY_COMMANDS:
+                yield (command, rgx)
+
+
+class TestKeyConfigParser:
+
+    """Test config.parsers.keyconf.KeyConfigParser."""
+
+    @pytest.mark.parametrize('command, rgx', keyconfig_deprecated_test_cases())
+    def test_default_config_no_deprecated(self, command, rgx):
+        """Make sure the default config contains no deprecated commands."""
+        assert rgx.match(command) is None
+
+
 class TestDefaultConfig:
 
     """Test validating of the default config."""
