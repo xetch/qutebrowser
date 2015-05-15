@@ -31,7 +31,7 @@ from PyQt5.QtCore import QObject
 from PyQt5.QtGui import QColor
 import pytest
 
-from qutebrowser.config import config, configexc
+from qutebrowser.config import config, configexc, configdata
 from qutebrowser.utils import objreg, standarddir
 
 
