@@ -23,8 +23,6 @@ from qutebrowser.utils import usertypes
 
 import pytest
 
-# FIXME: Add some more tests, e.g. for is_int
-
 
 @pytest.fixture
 def enum():
@@ -54,3 +52,17 @@ def test_start():
     e = usertypes.enum('Enum', ['three', 'four'], start=3)
     assert e.three.value == 3
     assert e.four.value == 4
+
+
+def test_is_int():
+    """Test the is_int argument."""
+    int_enum = usertypes.enum('Enum', ['item'], is_int=True)
+    no_int_enum = usertypes.enum('Enum', ['item'])
+    assert isinstance(int_enum.item, int)
+    assert not isinstance(no_int_enum.item, int)
+
+
+def test_unique():
+    """Make sure elements need to be unique."""
+    with pytest.raises(TypeError):
+        usertypes.enum('Enum', ['item', 'item'])
