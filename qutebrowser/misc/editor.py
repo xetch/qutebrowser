@@ -22,10 +22,11 @@
 import os
 import tempfile
 
-from PyQt5.QtCore import pyqtSignal, QProcess, QObject
+from PyQt5.QtCore import pyqtSignal, QObject, QProcess
 
 from qutebrowser.config import config
-from qutebrowser.utils import message, log, qtutils
+from qutebrowser.utils import message, log
+from qutebrowser.misc import guiprocess
 
 
 class ExternalEditor(QObject):
@@ -36,7 +37,7 @@ class ExternalEditor(QObject):
         _text: The current text before the editor is opened.
         _oshandle: The OS level handle to the tmpfile.
         _filehandle: The file handle to the tmpfile.
-        _proc: The QProcess of the editor.
+        _proc: The GUIProcess of the editor.
         _win_id: The window ID the ExternalEditor is associated with.
     """
 
@@ -50,7 +51,7 @@ class ExternalEditor(QObject):
         self._proc = None
         self._win_id = win_id
 
-    def _cleanup(self):
+    def cleanup(self):
         """Clean up temporary files after the editor closed."""
         try:
             os.close(self._oshandle)
@@ -68,16 +69,11 @@ class ExternalEditor(QObject):
         """
         log.procs.debug("Editor closed")
         if exitstatus != QProcess.NormalExit:
-            # No error/cleanup here, since we already handle this in
-            # on_proc_error
+            # No error/cleanup here, since we already handle this via the
+            # error signal.
             return
         try:
             if exitcode != 0:
-                # NOTE: Do not replace this with "raise CommandError" as it's
-                # executed async.
-                message.error(
-                    self._win_id, "Editor did quit abnormally (status "
-                                  "{})!".format(exitcode))
                 return
             encoding = config.get('general', 'editor-encoding')
             try:
@@ -92,16 +88,7 @@ class ExternalEditor(QObject):
             log.procs.debug("Read back: {}".format(text))
             self.editing_finished.emit(text)
         finally:
-            self._cleanup()
-
-    def on_proc_error(self, error):
-        """Display an error message and clean up when editor crashed."""
-        msg = qtutils.QPROCESS_ERRORS[error]
-        # NOTE: Do not replace this with "raise CommandError" as it's
-        # executed async.
-        message.error(self._win_id,
-                      "Error while calling editor: {}".format(msg))
-        self._cleanup()
+            self.cleanup()
 
     def edit(self, text):
         """Edit a given text.
@@ -123,9 +110,10 @@ class ExternalEditor(QObject):
             message.error(self._win_id, "Failed to create initial file: "
                                         "{}".format(e))
             return
-        self._proc = QProcess(self)
-        self._proc.finished.connect(self.on_proc_closed)
-        self._proc.error.connect(self.on_proc_error)
+        self._proc = guiprocess.GUIProcess(self._win_id, what='editor',
+                                           parent=self)
+        self._proc.proc.finished.connect(self.on_proc_closed)
+        self._proc.proc.error.connect(self.cleanup)
         editor = config.get('general', 'editor')
         executable = editor[0]
         args = [self._filename if arg == '{}' else arg for arg in editor[1:]]
