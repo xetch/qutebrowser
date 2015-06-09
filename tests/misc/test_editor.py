@@ -36,26 +36,31 @@ from qutebrowser.misc import editor
 
 class ArgvChecker:
 
-    TEMPLATE = textwrap.dedent("""
-        #!{executable}
-        import sysfgasf
-        if sys.argv == {expected}:
-            sys.exit(0)
-        else:
-            print("Got argv: " + repr(sys.argv), file=sys.stderr)
-            print("Expected: " + {expected}, file=sys.stderr)
-            sys.exit(1)
-    """.strip('\n'))
+    TEMPLATE = r"""
+#!{executable}
+import sys
+with open('{logfile}', 'w') as f:
+    if sys.argv == {expected}:
+        f.write('Got expected argv: ' + repr(sys.argv) + '\n')
+        sys.exit(0)
+    else:
+        f.write('Got argv: ' + repr(sys.argv) + '\n')
+        f.write('Expected: ' + repr({expected}) + '\n')
+        sys.exit(1)
+    """.strip()
 
     def __init__(self, tmpdir):
-        self._path = tmpdir / 'script.py'
+        self.script = tmpdir / 'script.py'
+        self.log = tmpdir / 'log'
+        self.log.ensure(file=True)
 
     def get(self, expected):
         code = self.TEMPLATE.format(expected=repr(expected),
-                                    executable=sys.executable)
-        self._path.write_text(code, encoding='utf-8')
-        self._path.chmod(0o755)
-        return str(self._path)
+                                    executable=sys.executable,
+                                    logfile=str(self.log))
+        self.script.write_text(code, encoding='utf-8')
+        self.script.chmod(0o755)
+        return str(self.script)
 
 
 @pytest.fixture
@@ -87,10 +92,11 @@ class TestArg:
 
     def test_simple_start_args(self, stubbed_config, argv_checker):
         """Test starting editor without arguments."""
-        binary = argv_checker.get([])
+        script = argv_checker.get([])
         stubbed_config.data = {
-            'general': {'editor': [binary], 'editor-encoding': 'utf-8'}}
+            'general': {'editor': [script], 'editor-encoding': 'utf-8'}}
         self.editor.edit("")
+        print(argv_checker.log.read())
 
         proc = self.editor._proc
         ok = proc.proc.waitForFinished(1000)
