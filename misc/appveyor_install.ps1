@@ -12,7 +12,7 @@ function InstallPackage ($python_home, $pkg) {
 }
 
 function main () {
-    InstallPip $env:PYTHON tox
+    InstallPackage $env:PYTHON tox
     (new-object net.webclient).DownloadFile("http://sourceforge.net/projects/pyqt/files/PyQt5/PyQt-5.4.1/PyQt5-5.4.1-gpl-Py3.4-Qt5.4.1-x64.exe", "C:\install-PyQt5.exe")
     Start-Process -FilePath C:\install-PyQt5.exe -ArgumentList "/S" -Wait -Passthru
 }
