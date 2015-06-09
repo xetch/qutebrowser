@@ -3,7 +3,7 @@ cache: C:\Users\appveyor\pip\wheels
 build: off
 environment:
     PYTHON: 'C:\Python34'
-    PATH: 'C:\Python34;C:\Python34\Scripts;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\'
+    PATH: 'C:\Python34;C:\Python34\Scripts;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files (x86)\Git\cmd'
 
 install:
   - cmd: 'C:\Python34\Scripts\pip.exe install tox'
