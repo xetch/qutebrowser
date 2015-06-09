@@ -1,11 +1,15 @@
 version: '{branch}-{build}'
 cache: C:\Users\appveyor\pip\wheels
 build: off
+environment:
+    PYTHON: "C:\\Python34"
 
 install:
-  - 'C:\Python34\Scripts\pip.exe install tox'
+  - cmd: 'C:\Python34\Scripts\pip.exe install tox'
   - ps: (new-object net.webclient).DownloadFile('http://sourceforge.net/projects/pyqt/files/PyQt5/PyQt-5.4.1/PyQt5-5.4.1-gpl-Py3.4-Qt5.4.1-x64.exe', 'C:\install-PyQt5.exe')
-  - 'C:\install-PyQt5.exe /S'
+  - ps: Start-Process -FilePath 'C:\install-PyQt5.exe' -ArgumentList "/S" -Wait -Passthru
+  - cmd: 'SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%'
+  - cmd: python -c 'open(r"C:\\Python34\\Scripts\\python3.bat").write(r"@C:\\Python34\\python %*")'
 
 test_script:
-  - 'C:\Python34\Scripts\tox.exe -e unittests_appveyor'
+  - 'tox.exe -e unittests'
