@@ -45,11 +45,14 @@ class GUIProcess:
 
     Args:
         proc: The underlying QProcess.
+        cmd: The command which was started.
+        args: A list of arguments which gets passed.
+        started: Whether the underlying process is started.
+        error: An error code (QProcess::ProcessError) or None.
         _win_id: The window ID this process is used in.
         _what: What kind of thing is spawned (process/editor/userscript/...).
                Used in messages.
         _verbose: Whether to show more messages.
-        _started: Whether the underlying process is started.
     """
 
     def __init__(self, win_id, what, *, verbose=False, additional_env=None,
@@ -57,7 +60,11 @@ class GUIProcess:
         self._win_id = win_id
         self._what = what
         self._verbose = verbose
-        self._started = False
+        self.error = None
+        self.started = False
+        self.cmd = None
+        self.args = None
+        self.exit = None
 
         self.proc = QProcess(parent)
         self.proc.error.connect(self.on_error)
@@ -73,6 +80,7 @@ class GUIProcess:
     @pyqtSlot(QProcess.ProcessError)
     def on_error(self, error):
         """Show a message if there was an error while spawning."""
+        self.error = error
         msg = ERROR_STRINGS[error]
         message.error(self._win_id, "Error while spawning {}: {}".format(
                       self._what, msg), immediately=True)
@@ -80,7 +88,8 @@ class GUIProcess:
     @pyqtSlot(int, QProcess.ExitStatus)
     def on_finished(self, code, status):
         """Show a message when the process finished."""
-        self._started = False
+        self.started = False
+        self.exit = code
         log.procs.debug("Process finished with code {}, status {}.".format(
             code, status))
         if status == QProcess.CrashExit:
@@ -100,13 +109,15 @@ class GUIProcess:
     def on_started(self):
         """Called when the process started successfully."""
         log.procs.debug("Process started.")
-        assert not self._started
-        self._started = True
+        assert not self.started
+        self.started = True
 
     def _pre_start(self, cmd, args):
-        """Things to do before starting a QProcess."""
-        if self._started:
+        """Prepare starting of a QProcess."""
+        if self.started:
             raise ValueError("Trying to start a running QProcess!")
+        self.cmd = cmd
+        self.args = args
         if self._verbose:
             fake_cmdline = ' '.join(shlex.quote(e) for e in [cmd + args])
             message.info(self._win_id, 'Executing: ' + fake_cmdline)
@@ -125,7 +136,7 @@ class GUIProcess:
 
         if ok:
             log.procs.debug("Process started.")
-            self._started = True
+            self.started = True
         else:
             message.error(self._win_id, "Error while spawning {}: {}.".format(
                           self._what, self.proc.error()), immediately=True)

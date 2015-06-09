@@ -22,14 +22,46 @@
 # pylint: disable=protected-access
 
 import os
+import sys
 import os.path
 import logging
+import textwrap
 from unittest import mock
 
 from PyQt5.QtCore import QProcess
 import pytest
 
 from qutebrowser.misc import editor
+
+
+class ArgvChecker:
+
+    TEMPLATE = textwrap.dedent("""
+        #!{executable}
+        import sysfgasf
+        if sys.argv == {expected}:
+            sys.exit(0)
+        else:
+            print("Got argv: " + repr(sys.argv), file=sys.stderr)
+            print("Expected: " + {expected}, file=sys.stderr)
+            sys.exit(1)
+    """.strip('\n'))
+
+    def __init__(self, tmpdir):
+        self._path = tmpdir / 'script.py'
+
+    def get(self, expected):
+        code = self.TEMPLATE.format(expected=repr(expected),
+                                    executable=sys.executable)
+        self._path.write_text(code, encoding='utf-8')
+        self._path.chmod(0o755)
+        return str(self._path)
+
+
+@pytest.fixture
+def argv_checker(tmpdir):
+    """Get a commandline which tests whether sys.argv looks like expected."""
+    return ArgvChecker(tmpdir)
 
 
 class TestArg:
@@ -42,11 +74,9 @@ class TestArg:
 
     @pytest.yield_fixture(autouse=True)
     def setup(self, monkeypatch, stubs):
-        monkeypatch.setattr('qutebrowser.misc.editor.guiprocess.QProcess',
-                            stubs.FakeQProcess())
         self.editor = editor.ExternalEditor(0)
         yield
-        self.editor._cleanup()  # pylint: disable=protected-access
+        self.editor.cleanup()
 
     @pytest.fixture
     def stubbed_config(self, config_stub, monkeypatch):
@@ -55,12 +85,18 @@ class TestArg:
         monkeypatch.setattr('qutebrowser.misc.editor.config', config_stub)
         return config_stub
 
-    def test_simple_start_args(self, stubbed_config):
+    def test_simple_start_args(self, stubbed_config, argv_checker):
         """Test starting editor without arguments."""
+        binary = argv_checker.get([])
         stubbed_config.data = {
-            'general': {'editor': ['bin'], 'editor-encoding': 'utf-8'}}
+            'general': {'editor': [binary], 'editor-encoding': 'utf-8'}}
         self.editor.edit("")
-        self.editor._proc.start.assert_called_with("bin", [])
+
+        proc = self.editor._proc
+        ok = proc.proc.waitForFinished(1000)
+        assert ok
+        assert proc.error is None
+        assert proc.exit == 0
 
     def test_start_args(self, stubbed_config):
         """Test starting editor with static arguments."""
@@ -68,7 +104,11 @@ class TestArg:
             'general': {'editor': ['bin', 'foo', 'bar'],
                         'editor-encoding': 'utf-8'}}
         self.editor.edit("")
-        self.editor._proc.start.assert_called_with("bin", ["foo", "bar"])
+
+        proc = self.editor._proc
+        assert proc.started
+        assert proc.cmd == 'bin'
+        assert proc.args == ['foo', 'bar']
 
     def test_placeholder(self, stubbed_config):
         """Test starting editor with placeholder argument."""
@@ -77,8 +117,11 @@ class TestArg:
                         'editor-encoding': 'utf-8'}}
         self.editor.edit("")
         filename = self.editor._filename
-        self.editor._proc.start.assert_called_with(
-            "bin", ["foo", filename, "bar"])
+
+        proc = self.editor._proc
+        assert proc.started
+        assert proc.cmd == 'bin'
+        assert proc.args == ['foo', filename, 'bar']
 
     def test_in_arg_placeholder(self, stubbed_config):
         """Test starting editor with placeholder argument inside argument."""
@@ -86,7 +129,11 @@ class TestArg:
             'general': {'editor': ['bin', 'foo{}bar'],
                         'editor-encoding': 'utf-8'}}
         self.editor.edit("")
-        self.editor._proc.start.assert_called_with("bin", ["foo{}bar"])
+
+        proc = self.editor._proc
+        assert proc.started
+        assert proc.cmd == 'bin'
+        assert proc.args == ['foo{}bar']
 
 
 class TestFileHandling:
@@ -113,7 +160,7 @@ class TestFileHandling:
         self.editor.edit("")
         filename = self.editor._filename
         assert os.path.exists(filename)
-        self.editor.on_proc_closed(0, QProcess.NormalExit)
+        self.editor._proc.proc.finished.emit(0, QProcess.NormalExit)
         assert not os.path.exists(filename)
 
     def test_file_handling_closed_error(self, caplog):
@@ -122,7 +169,7 @@ class TestFileHandling:
         filename = self.editor._filename
         assert os.path.exists(filename)
         with caplog.atLevel(logging.ERROR):
-            self.editor.on_proc_closed(1, QProcess.NormalExit)
+            self.editor._proc.proc.finished.emit(1, QProcess.NormalExit)
             assert len(caplog.records()) == 2
         assert not os.path.exists(filename)
 
@@ -132,9 +179,9 @@ class TestFileHandling:
         filename = self.editor._filename
         assert os.path.exists(filename)
         with caplog.atLevel(logging.ERROR):
-            self.editor.on_proc_error(QProcess.Crashed)
+            self.editor._proc.proc.error.emit(QProcess.Crashed)
             assert len(caplog.records()) == 2
-        self.editor.on_proc_closed(0, QProcess.CrashExit)
+        self.editor._proc.proc.finished.emit(0, QProcess.CrashExit)
         assert not os.path.exists(filename)
 
 
@@ -182,7 +229,7 @@ class TestModifyTests:
         self.editor.edit("")
         assert self._read() == ""
         self._write("Hello")
-        self.editor.on_proc_closed(0, QProcess.NormalExit)
+        self.editor._proc.proc.finished.emit(0, QProcess.NormalExit)
         self.editor.editing_finished.emit.assert_called_with("Hello")
 
     def test_simple_input(self):
@@ -190,7 +237,7 @@ class TestModifyTests:
         self.editor.edit("Hello")
         assert self._read() == "Hello"
         self._write("World")
-        self.editor.on_proc_closed(0, QProcess.NormalExit)
+        self.editor._proc.proc.finished.emit(0, QProcess.NormalExit)
         self.editor.editing_finished.emit.assert_called_with("World")
 
     def test_umlaut(self):
@@ -198,7 +245,7 @@ class TestModifyTests:
         self.editor.edit("Hällö Wörld")
         assert self._read() == "Hällö Wörld"
         self._write("Überprüfung")
-        self.editor.on_proc_closed(0, QProcess.NormalExit)
+        self.editor._proc.proc.finished.emit(0, QProcess.NormalExit)
         self.editor.editing_finished.emit.assert_called_with("Überprüfung")
 
     def test_unicode(self):
@@ -206,41 +253,5 @@ class TestModifyTests:
         self.editor.edit("\u2603")  # Unicode snowman
         assert self._read() == "\u2603"
         self._write("\u2601")  # Cloud
-        self.editor.on_proc_closed(0, QProcess.NormalExit)
+        self.editor._proc.proc.finished.emit(0, QProcess.NormalExit)
         self.editor.editing_finished.emit.assert_called_with("\u2601")
-
-
-class TestErrorMessage:
-
-    """Test if statusbar error messages get emitted correctly.
-
-    Attributes:
-        editor: The ExternalEditor instance to test.
-    """
-
-    @pytest.yield_fixture(autouse=True)
-    def setup(self, monkeypatch, stubs, config_stub):
-        monkeypatch.setattr('qutebrowser.misc.editor.guiprocess.QProcess',
-                            stubs.FakeQProcess())
-        monkeypatch.setattr('qutebrowser.misc.editor.message',
-                            stubs.MessageModule())
-        config_stub.data = {'general': {'editor': [''],
-                                        'editor-encoding': 'utf-8'}}
-        monkeypatch.setattr('qutebrowser.misc.editor.config', config_stub)
-        self.editor = editor.ExternalEditor(0)
-        yield
-        self.editor._cleanup()  # pylint: disable=protected-access
-
-    def test_proc_error(self, caplog):
-        """Test on_proc_error."""
-        self.editor.edit("")
-        with caplog.atLevel(logging.ERROR, 'message'):
-            self.editor.on_proc_error(QProcess.Crashed)
-            assert len(caplog.records()) == 2
-
-    def test_proc_return(self, caplog):
-        """Test on_proc_finished with a bad exit status."""
-        self.editor.edit("")
-        with caplog.atLevel(logging.ERROR, 'message'):
-            self.editor.on_proc_closed(1, QProcess.NormalExit)
-            assert len(caplog.records()) == 3
