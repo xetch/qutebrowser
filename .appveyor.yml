@@ -12,5 +12,6 @@ install:
 build: off
 
 test_script:
-  - "%PYTHON%\\Scripts\\tox.exe -e unittests"
-  - "%PYTHON%\\Scripts\\tox.exe -e smoke"
+  - "%PYTHON%\\Scripts\\tox.exe"
+    #  - "%PYTHON%\\Scripts\\tox.exe -e unittests"
+    #  - "%PYTHON%\\Scripts\\tox.exe -e smoke"
