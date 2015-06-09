@@ -141,8 +141,11 @@ def get_python_lib(executable, venv=False):
     if os.name == 'nt' and not venv:
         # For some reason, we get an empty string from get_python_lib() on
         # Windows when running via tox, and sys.prefix is empty too...
-        return os.path.join(os.path.dirname(executable), '..', 'Lib',
-                            'site-packages')
+        pythondir = os.path.dirname(executable)
+        if pythondir.split(os.sep)[-1] == 'Scripts':
+            # C:\Python34\Scripts\python3.bat
+            pythondir = os.path.join(pythondir, '..')
+        return os.path.join(pythondir, 'Lib', 'site-packages')
     elif distribution[0].lower() in ('debian', 'ubuntu') and not venv:
         # For some reason, we get '/usr/lib/python3.4/site-packages' instead of
         # '/usr/lib/python3/dist-packages' on debian with tox...
