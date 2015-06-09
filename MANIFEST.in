@@ -31,3 +31,5 @@ exclude .coveragerc
 exclude .pylintrc
 exclude .eslintrc
 exclude doc/help
+exclude .appveyor.yml
+exclude .travis.yml
